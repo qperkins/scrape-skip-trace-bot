@@ -113,15 +113,46 @@ def scrape_all_combined() -> pd.DataFrame:
         lgbs_df = lgbs_future.result()
         hctax_df = hctax_future.result()
 
-    result = merge_matching_addresses(
-        hctax_df=hctax_df,
-        lgbs_df=lgbs_df,
-        output_csv=None,
-    )
-    unique = result.drop_duplicates(subset=["address", "city", "state", "zip"])
-    result.attrs["matching_rows"] = len(result)
-    result.attrs["unique_matching_addresses"] = len(unique)
-    return result
+    lgbs_count = len(lgbs_df)
+    hctax_count = len(hctax_df)
+
+    if lgbs_count > 0 and hctax_count > 0:
+        result = merge_matching_addresses(
+            hctax_df=hctax_df,
+            lgbs_df=lgbs_df,
+            output_csv=None,
+        )
+        unique = result.drop_duplicates(subset=["address", "city", "state", "zip"])
+        result.attrs["mode"] = "matching"
+        result.attrs["matching_rows"] = len(result)
+        result.attrs["unique_matching_addresses"] = len(unique)
+        if len(result) == 0:
+            result.attrs["notice"] = (
+                "Both sources returned listings, but no matching addresses were found."
+            )
+        return result
+
+    if lgbs_count > 0:
+        result = lgbs_to_standard(lgbs_df).drop(columns=["normalized_address"])
+        result.attrs["mode"] = "fallback"
+        result.attrs["fallback_source"] = "LGBS"
+        result.attrs["notice"] = (
+            "HCTax returned no listings, so matching was skipped. "
+            "Returning LGBS data only."
+        )
+        return result
+
+    if hctax_count > 0:
+        result = hctax_to_standard(hctax_df).drop(columns=["normalized_address"])
+        result.attrs["mode"] = "fallback"
+        result.attrs["fallback_source"] = "HCTax"
+        result.attrs["notice"] = (
+            "LGBS returned no listings, so matching was skipped. "
+            "Returning HCTax data only."
+        )
+        return result
+
+    raise RuntimeError("Both LGBS and HCTax returned no listings.")
 
 
 def save_csv(df: pd.DataFrame, path: Path) -> Path:

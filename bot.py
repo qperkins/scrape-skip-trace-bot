@@ -61,26 +61,35 @@ def _run_job(
         df = fetch_df()
         matching_rows = df.attrs.get("matching_rows")
         unique_matching = df.attrs.get("unique_matching_addresses")
+        notice = df.attrs.get("notice")
+        fallback_source = df.attrs.get("fallback_source")
 
         if do_skip_trace:
             df, trace_stats = skip_trace_dataframe(df)
             suffix = "skip_traced"
+            title = label
+            if fallback_source:
+                title = f"{fallback_source} (fallback)"
             summary_lines = [
-                f"✅ *{label}* complete (skip traced)",
+                f"✅ *{title}* complete (skip traced)",
                 f"• Total properties: {trace_stats['total_properties']}",
                 f"• Successfully traced: {trace_stats['successfully_traced']}",
                 f"• Credits used: {trace_stats['credits_used']}",
             ]
         else:
             suffix = "scraped"
+            title = fallback_source or label
             summary_lines = [
-                f"✅ *{label}* complete",
+                f"✅ *{title}* complete",
                 f"• Total properties: {len(df)}",
             ]
             if matching_rows is not None:
                 summary_lines[1] = f"• Matching addresses (both sources): {matching_rows}"
                 if unique_matching is not None and unique_matching != matching_rows:
                     summary_lines.append(f"• Unique addresses: {unique_matching}")
+
+        if notice:
+            summary_lines.insert(1, f"⚠️ {notice}")
 
         summary_lines.append(f"• Runtime: {_format_runtime(time.time() - started)}")
 
