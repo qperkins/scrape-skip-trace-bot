@@ -61,9 +61,20 @@ RETRY_BACKOFF_BASE = 5      # seconds; doubles each retry
 
 
 def get_with_retry(url, params=None):
+    import socket
+    
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             resp = requests.get(url, params=params, headers=HEADERS, timeout=20)
+        except requests.exceptions.ConnectionError as e:
+            print(f"  attempt {attempt}: connection error ({e})")
+            # Try DNS resolution to help diagnose network issues
+            try:
+                hostname = url.split('/')[2]
+                ip = socket.gethostbyname(hostname)
+                print(f"  DNS resolved {hostname} to {ip}")
+            except socket.gaierror as dns_err:
+                print(f"  DNS resolution failed: {dns_err}")
         except requests.RequestException as e:
             print(f"  attempt {attempt}: request error ({e})")
         else:

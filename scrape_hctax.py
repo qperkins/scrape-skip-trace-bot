@@ -53,9 +53,21 @@ FIELDS = [
 
 
 def fetch_page(url: str) -> str:
-    resp = requests.get(url, headers=HEADERS, timeout=30)
-    resp.raise_for_status()
-    return resp.text
+    import socket
+    
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        return resp.text
+    except requests.exceptions.ConnectionError as e:
+        # Try DNS resolution to help diagnose network issues
+        try:
+            hostname = url.split('/')[2]
+            ip = socket.gethostbyname(hostname)
+            print(f"DNS resolved {hostname} to {ip}, but connection failed: {e}")
+        except socket.gaierror as dns_err:
+            print(f"DNS resolution failed for {hostname}: {dns_err}")
+        raise
 
 
 def flatten_text(html: str) -> str:
