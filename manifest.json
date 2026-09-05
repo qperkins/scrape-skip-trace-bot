@@ -1,0 +1,47 @@
+{
+  "_metadata": {
+    "major_version": 1,
+    "minor_version": 1
+  },
+  "display_information": {
+    "name": "Scrape Skip Trace Bot",
+    "description": "Run Harris County tax sale scrapers and optional Tracerfy skip tracing from Slack."
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "Scrape Bot",
+      "always_online": true
+    },
+    "slash_commands": [
+      {
+        "command": "/scrape-lgbs",
+        "description": "Scrape LGBS listings (add 'skip-trace' to skip trace)",
+        "should_escape": false
+      },
+      {
+        "command": "/scrape-hctax",
+        "description": "Scrape HCTax listings (add 'skip-trace' to skip trace)",
+        "should_escape": false
+      },
+      {
+        "command": "/scrape-all",
+        "description": "Addresses in both sources (add 'skip-trace' to skip trace)",
+        "should_escape": false
+      }
+    ]
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "chat:write",
+        "commands",
+        "files:write"
+      ]
+    }
+  },
+  "settings": {
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": true,
+    "token_rotation_enabled": false
+  }
+}
