@@ -135,25 +135,23 @@ def _run_job(
 def _start_job(body, client, *, label: str, fetch_df, do_skip_trace: bool) -> None:
     channel_id = body["channel_id"]
     user_id = body["user_id"]
-
     action = "Scraping and skip tracing" if do_skip_trace else "Scraping"
-    client.chat_postMessage(
-        channel=channel_id,
-        text=f"⏳ {action} *{label}*... I'll post results here when done.",
-    )
 
-    thread = threading.Thread(
-        target=_run_job,
-        kwargs={
-            "client": client,
-            "channel_id": channel_id,
-            "user_id": user_id,
-            "label": label,
-            "fetch_df": fetch_df,
-            "do_skip_trace": do_skip_trace,
-        },
-        daemon=True,
-    )
+    def run() -> None:
+        client.chat_postMessage(
+            channel=channel_id,
+            text=f"⏳ {action} *{label}*... I'll post results here when done.",
+        )
+        _run_job(
+            client=client,
+            channel_id=channel_id,
+            user_id=user_id,
+            label=label,
+            fetch_df=fetch_df,
+            do_skip_trace=do_skip_trace,
+        )
+
+    thread = threading.Thread(target=run, daemon=True)
     thread.start()
 
 
