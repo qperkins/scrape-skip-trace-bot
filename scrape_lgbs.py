@@ -20,11 +20,19 @@ Usage:
     -> writes lgbs_harris_county_listings.csv
 """
 
+import socket
 import sys
 import time
 
 import requests
 import pandas as pd
+
+# Force IPv4 connections (fixes "Network is unreachable" on some cloud hosts)
+_original_getaddrinfo = socket.getaddrinfo
+def _ipv4_only_getaddrinfo(*args, **kwargs):
+    responses = _original_getaddrinfo(*args, **kwargs)
+    return [r for r in responses if r[0] == socket.AF_INET] or responses
+socket.getaddrinfo = _ipv4_only_getaddrinfo
 
 BASE = "https://taxsales.lgbs.com"
 API_PATH = "/api/property_sales/"

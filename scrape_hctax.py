@@ -17,11 +17,19 @@ Usage:
 
 import csv
 import re
+import socket
 import sys
 import time
 
 import requests
 from bs4 import BeautifulSoup
+
+# Force IPv4 connections (fixes "Network is unreachable" on some cloud hosts)
+_original_getaddrinfo = socket.getaddrinfo
+def _ipv4_only_getaddrinfo(*args, **kwargs):
+    responses = _original_getaddrinfo(*args, **kwargs)
+    return [r for r in responses if r[0] == socket.AF_INET] or responses
+socket.getaddrinfo = _ipv4_only_getaddrinfo
 
 URL = "https://www.hctax.net/Property/listings/taxsalelisting"
 OUTPUT_CSV = "hctax_tax_sale_listings.csv"
