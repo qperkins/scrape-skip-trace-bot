@@ -4,6 +4,8 @@ services:
     runtime: python
     plan: free
     region: oregon
+    repo: https://github.com/qperkins/scrape-skip-trace-bot
+    branch: main
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT --timeout 600 bot:flask_app
     healthCheckPath: /health
