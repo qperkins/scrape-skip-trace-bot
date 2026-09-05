@@ -8,8 +8,10 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-TRACERFY_BASE = "https://tracerfy.com/v1/api"
-POLL_INTERVAL = 5
+DEFAULT_TRACERFY_BASE = "https://tracerfy.com/v1/api"
+SANDBOX_TRACERFY_BASE = "https://mock.tracerfy.com/v1/api"
+# Tracerfy docs: GET /queues/ is limited to 1 request per 20 seconds.
+QUEUE_POLL_INTERVAL = 20
 MAX_POLL_SECONDS = 600
 
 
@@ -17,11 +19,36 @@ class SkipTraceError(Exception):
     pass
 
 
+def tracerfy_base_url() -> str:
+    explicit = os.environ.get("TRACERFY_API_BASE", "").strip()
+    if explicit:
+        return explicit.rstrip("/")
+    if os.environ.get("TRACERFY_USE_SANDBOX", "").lower() in {"1", "true", "yes"}:
+        return SANDBOX_TRACERFY_BASE
+    return DEFAULT_TRACERFY_BASE
+
+
 def _headers() -> dict:
     api_key = os.environ.get("TRACERFY_API_KEY")
     if not api_key:
         raise SkipTraceError("TRACERFY_API_KEY is not set")
     return {"Authorization": f"Bearer {api_key}"}
+
+
+def _parse_retry_seconds(response: requests.Response, default: int = 20) -> int:
+    try:
+        payload = response.json()
+        retry_in = payload.get("retry_in", "")
+        if isinstance(retry_in, str) and retry_in:
+            return max(int(retry_in.split()[0]), 1)
+    except (ValueError, AttributeError, TypeError):
+        pass
+    return default
+
+
+def _request(method: str, path: str, **kwargs) -> requests.Response:
+    url = f"{tracerfy_base_url()}/{path.lstrip('/')}"
+    return requests.request(method, url, headers=_headers(), timeout=kwargs.pop("timeout", 60), **kwargs)
 
 
 def prepare_tracerfy_input(df: pd.DataFrame) -> pd.DataFrame:
@@ -37,9 +64,9 @@ def prepare_tracerfy_input(df: pd.DataFrame) -> pd.DataFrame:
 
 def submit_batch(csv_path: Path, trace_type: str = "advanced") -> dict:
     with csv_path.open("rb") as handle:
-        response = requests.post(
-            f"{TRACERFY_BASE}/trace/",
-            headers=_headers(),
+        response = _request(
+            "POST",
+            "trace/",
             files={"csv_file": (csv_path.name, handle, "text/csv")},
             data={
                 "address_column": "address",
@@ -48,21 +75,21 @@ def submit_batch(csv_path: Path, trace_type: str = "advanced") -> dict:
                 "zip_column": "zip",
                 "trace_type": trace_type,
             },
-            timeout=60,
         )
     if response.status_code >= 400:
         raise SkipTraceError(f"Tracerfy submit failed ({response.status_code}): {response.text}")
     return response.json()
 
 
-def _find_queue(queue_id: int) -> dict | None:
-    response = requests.get(
-        f"{TRACERFY_BASE}/queues/",
-        headers=_headers(),
-        timeout=30,
-    )
+def _fetch_queue_from_list(queue_id: int) -> dict | None:
+    response = _request("GET", "queues/")
+    if response.status_code == 429:
+        time.sleep(_parse_retry_seconds(response))
+        response = _request("GET", "queues/")
     if response.status_code >= 400:
-        raise SkipTraceError(f"Tracerfy queue poll failed ({response.status_code}): {response.text}")
+        raise SkipTraceError(
+            f"Tracerfy queue poll failed ({response.status_code}): {response.text}"
+        )
 
     for queue in response.json():
         if queue.get("id") == queue_id:
@@ -72,10 +99,10 @@ def _find_queue(queue_id: int) -> dict | None:
 
 def wait_for_queue(queue_id: int, estimated_wait: int = 30) -> dict:
     deadline = time.time() + MAX_POLL_SECONDS
-    sleep_for = max(POLL_INTERVAL, min(estimated_wait, 15))
+    sleep_for = max(QUEUE_POLL_INTERVAL, estimated_wait)
 
     while time.time() < deadline:
-        queue = _find_queue(queue_id)
+        queue = _fetch_queue_from_list(queue_id)
         if queue and not queue.get("pending") and queue.get("download_url"):
             return queue
         time.sleep(sleep_for)
