@@ -15,19 +15,19 @@
     "slash_commands": [
       {
         "command": "/scrape-lgbs",
-        "url": "https://YOUR-SERVICE.onrender.com/slack/events",
+        "url": "https://slack-skip-trace-bot.onrender.com/slack/events",
         "description": "Scrape LGBS listings (add 'skip-trace' to skip trace)",
         "should_escape": false
       },
       {
         "command": "/scrape-hctax",
-        "url": "https://YOUR-SERVICE.onrender.com/slack/events",
+        "url": "https://slack-skip-trace-bot.onrender.com/slack/events",
         "description": "Scrape HCTax listings (add 'skip-trace' to skip trace)",
         "should_escape": false
       },
       {
         "command": "/scrape-all",
-        "url": "https://YOUR-SERVICE.onrender.com/slack/events",
+        "url": "https://slack-skip-trace-bot.onrender.com/slack/events",
         "description": "Addresses in both sources (add 'skip-trace' to skip trace)",
         "should_escape": false
       }
